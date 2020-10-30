@@ -585,7 +585,7 @@ int waitpid(int pid, int *status, int options){
 	//fixlater
 	struct proc *p;
 	int pidsame;
-	struct proc *curproc = myproc();
+/*	struct proc *curproc = myproc();
 
 	acquire(&ptable.lock);
 	for(;;){
@@ -617,5 +617,43 @@ int waitpid(int pid, int *status, int options){
 	 return -1;
 	}	
   sleep(curproc, &ptable.lock);	
- }
+ }*/
+
+	acquire(&ptable.lock);;
+	for(p=ptable.proc; p<&ptable.proc[NPROC]; p++){
+		if(p->pid != pid)
+			continue;
+		else{
+			pidsame=1;
+			break;
+		}
+	}
+	
+	if(!pidsame){
+		release(&ptable.lock);
+		if(status)
+			*status=-1;
+		return -1;
+		}
+
+	else{
+		for(;;){
+			if(p->state == ZOMBIE){
+			kfree(p->kstack);
+			p->kstack = 0;
+			freevm(p->pgdir);
+			p->pid = 0;
+			p->parent = 0;
+			p->name[0] = 0;
+			p->killed = 0;
+			p->state = UNUSED;
+			if(status){
+				*status=p->status;
+			}
+			release(&ptable.lock);
+			return pid;
+			}
+		}
+	}
+	sleep(p, &ptable.lock);
 }
