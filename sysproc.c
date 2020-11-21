@@ -14,6 +14,18 @@ sys_fork(void)
 }
 
 int
+sys_setpri(void){
+ int pri=31;
+ argint(0,&pri);
+ return setpri(pri);
+}
+
+int
+sys_getp(void){
+ return myproc()->pstat;
+}
+
+int
 sys_exit(void)
 {
 //  exit(myproc()->status);

@@ -22,3 +22,5 @@
 #define SYS_close  21
 #define SYS_waitpid 22
 #define SYS_exitS 23
+#define SYS_setpri 24
+#define SYS_getp   25

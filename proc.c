@@ -112,6 +112,8 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+ // p->pstat=10;
+
   return p;
 }
 
@@ -373,34 +375,96 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
+  struct proc *temp = ptable.proc;
+  int m=31;  
   
   for(;;){
+    m=31;
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    
+	struct proc *min;
+	for(min=ptable.proc;min<&ptable.proc[NPROC]; min++){
+	 if(min->pstat>=1)
+		min->pstat=min->pstat-1;
+	 else if(min->pstat<=0)
+		min->pstat=0;
+	}	
+
+	for(min=ptable.proc;min<&ptable.proc[NPROC];min++){
+	 if(min->state==RUNNABLE && m>=min->pstat){
+	  m=min->pstat;
+	  temp=min;
+	 }
+	}
+
+     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+	if(temp->state!=RUNNABLE)
+	continue;
+ 
+     c->proc = temp;
+      switchuvm(temp);
+      temp->state = RUNNING;
 
-      swtch(&(c->scheduler), p->context);
+      swtch(&(c->scheduler), temp->context);
       switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
-      c->proc = 0;
+	if(min->pstat<=21)
+		temp->pstat+=2;
+	else if(min->pstat>21)
+		temp->pstat=2; 
+
+     c->proc = 0;
     }
     release(&ptable.lock);
 
   }
+
+/*struct proc *p;
+struct proc *t;
+struct cpu *c = mycpu();
+c->proc = 0;
+
+for(;;){
+sti();
+acquire(&ptable.lock);
+p=ptable.proc;
+while(p<&ptable.proc[NPROC]){
+if(p->state != RUNNABLE){
+p++;
+continue;
+}
+for(t=p+1;t<&ptable.proc[NPROC];t++){
+if(t->state==RUNNABLE && t->pstat<p->pstat)
+p=t;
+}
+c->proc=0;
+for(t=ptable.proc;t<&ptable.proc[NPROC];t++){
+if(t->state==RUNNABLE){
+if(t==p && t->pstat<31){
+t->pstat=t->pstat+1;
+}
+else if(t!=p && t->pstat>0){
+t->pstat=t->pstat-1;
+}
+}
+}
+p=ptable.proc;
+}
+release(&ptable.lock);
+}*/
+
 }
 
 // Enter scheduler.  Must hold only ptable.lock
@@ -656,4 +720,11 @@ int waitpid(int pid, int *status, int options){
 		}
 	}
 	sleep(p, &ptable.lock);
+}
+
+int setpri (int n){
+ struct proc*p = myproc();
+ if(n>=0 && n<=31)
+	p->pstat=n;
+ return n;
 }
